@@ -1,23 +1,21 @@
 clear; close all; clc;
 %% Входные данные ==============================================
-skipNumberOfBytes     = 10000;
-fileNameStr = 'D:\GitHubSkillBox\hackrf_matlab_spectrum\1.bin';
-fileNameStr2 = 'D:\GitHubSkillBox\hackrf_matlab_spectrum\1.bin';
-dataType           = 'schar';
+skipNumberOfBytes     = 1000000; % Скипаем биты переходных процессов
+fileNameStr = '1.bin';
+fileNameStr2 = '2.bin';
+dataType           = 'schar'; 
 
-samplingFreq       = 40e6/2;  %Гц
-codeFreqBasis      = 0.5115e6;      %Гц
-numberSamples      = samplingFreq/10;
+samplingFreq       = 15e6; %[Гц] Частота дискретизации
+numberSamples      = 10*samplingFreq; % Общее кол-во отсчетов
 
 %% Открытие, чтение данных ===============================================
 [fid, ~] = fopen(fileNameStr, 'rb');
 fseek(fid, skipNumberOfBytes, 'bof');
 
 [fid2, ~] = fopen(fileNameStr2, 'rb');
-fseek(fid2, skipNumberOfBytes+1000000, 'bof'); % <--- проверка ВКФ(убрать + 100..)
+fseek(fid2, skipNumberOfBytes, 'bof'); % 
 
 % Чтение 1/10 от всего кол-ва сэмплов
-dataAdaptCoeff=2;
 data = fread(fid, [1, numberSamples], dataType);
 data2 = fread(fid2, [1, numberSamples], dataType);
 fclose(fid); fclose(fid2);
@@ -32,10 +30,11 @@ timeScale = 1 : 1 : numberSamples;
 [sigspec2,freqv2]=pwelch(data2, 32758, 2048, 16368, samplingFreq,'twosided');
 
 %% Оценка мощности сигнала в полосе ======================================
-power_in_band = bandpower(sigspec);
-power_in_band2 = bandpower(sigspec2);
+% power_in_band = bandpower(sigspec); % [Вт/Гц]
+% power_in_band2 = bandpower(sigspec2); % [Вт/Гц]
 % Мощность сигнала в определенной полосе
-% power_in_band = bandpower(sigspec,samplingFreq,[0, 10e6])
+power_in_band = bandpower(sigspec,freqv,[3.5e6, 12e6],'psd'); %[Вт] <--- установить нужную
+power_in_band2 = bandpower(sigspec2,freqv2,[3.5e6, 12e6],'psd'); %[Вт] <--- установить нужную
 
 %% Коэффициент взаимной корреляции ======================================
 % Вычисление взаимной корреляции
@@ -72,25 +71,24 @@ xlabel('Частота (МГц)'); ylabel('Мощность дБм');
 figure(3)
 plot(lags, r);
 grid on;
-title('Взаимная корреляция двух сигналов');
+title(['Взаимная корреляция двух сигналов = '  num2str(real(max(r)))]);
 xlabel('Лаг'); ylabel('Коэффициент корреляции');
 
 %-------------------------------------------------------------------------
 disp(['Взаимный коэффициент корреляции: ' num2str(real(max(r)))]);
-disp(['Средняя мощность в полосе-1 0-20 МГц: ' num2str(power_in_band) ' Вт/Гц']);
-disp(['Средняя мощность в полосе-2 0-20 МГц: ' num2str(power_in_band2) ' Вт/Гц']);
+disp(['Мощность в полосе ' fileNameStr ': ' num2str(power_in_band) ' Вт']);
+disp(['Мощность в полосе ' fileNameStr2 ': ' num2str(power_in_band2) ' Вт']);
 
-if power_in_band - power_in_band2 > 0.05
+if power_in_band - power_in_band2 > 7 % 7 это относительно рандомная константа
     disp('Объект излучения находится: ЛЕВЕЕ');
-elseif power_in_band - power_in_band > 0.05
+elseif power_in_band - power_in_band > 7
     disp('Объект излучения находится: ПРАВЕЕ');
 else
     disp('Объект излучения находится: ПО ЦЕНТРУ');
 end
 
 
-
-%% Пример взят с интернета, все константы рандом, но если поднастроить, то норм
+%% Пример взят с интернета, все константы рандом, но если поднастроить, то ...
 c = 3e8; % скорость света (м/с)
 Pt = 1e3; % мощность излучаемого сигнала (в Вт)
 Gt = 10^(10/10); % коэффициент усиления антенны передатчика (в дБ)
